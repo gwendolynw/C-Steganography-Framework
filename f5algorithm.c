@@ -38,15 +38,10 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
 
     //THE EMBED LOOP
     if(doEmbed){
-        
-
         int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
         int message_buffer; //buffer to store k bits of message partition
-        
         int shrinkage_flag = 0; //if shrinkage, we use the message_buffer of the last iteration (because doing this with bit manipulation with weird message partitions (5 bits, etc) makes things messy
-        
         int current_msgbit_index = 0; //mark how far along current bit of *message we are
-
         node *current_ucb_node = rootOfUsableCoefficientBuffer->next;  //mark how far along UCB we are
         
         while (*message != '\0' && current_ucb_node != NULL){
@@ -143,18 +138,16 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     size_t message_index = 0; //how many bytes along have been extracted
     int message_bit_index = 0; //how many bits along (relative to current byte) have been extracted
     float embed_rate = (float)output_buffer_size/list_size;
-        
+
     while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
         message_partition_size++;
     }
-    
+
     message_partition_size--;
 
     //calculate the code word length n = 2^k - 1
     int codeword_size = (1<<message_partition_size)-1;  //let this also be known as the variable n
-
     node *current_ucb_node = rootOfUsableCoefficientBuffer->next; //mark how far along ucb list we are.
-    
     int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
     
     while (message_index < message_length){
