@@ -69,6 +69,29 @@ int fill_message_buffer_with_k_message_bits (int *message_buffer, const char *me
 
     return 0;
 }
+
+int embed_message_bits(int index_to_change, size_t codeword_size, node *current_ucb_node) {
+
+    if (!index_to_change) {
+        return 0; //if zero, there's nothing to embed
+    }
+
+    node *node_to_change = traverse_n_nodes_backward(current_ucb_node, codeword_size);
+    node_to_change = traverse_n_nodes_forward(node_to_change, index_to_change);
+
+    buffer_coefficient *coeff = &node_to_change->coeff_struct;
+    if (coeff->coefficient > 0)
+        coeff->coefficient--;
+    else
+        coeff->coefficient++;
+
+    if (coeff->coefficient == 0){
+        current_ucb_node = traverse_n_nodes_backward(current_ucb_node, codeword_size);
+        return 1;
+    }
+    else {
+        return 0;
+    }
 }
 
 
@@ -98,37 +121,12 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
                 message_buffer=0;
                 end_of_message = fill_message_buffer_with_k_message_bits(&message_buffer, message, message_partition_size, &current_msgbit_index);
             }
-            int index_to_change = (message_buffer ^ hash);
 
-            //decrement/increment absolute value of index to change
-            if (!index_to_change) {
-                continue; //if zero, don't do any embedding
-            }
-            
-            //embed the secret message: change message at index of sum
-            //because we only know how far along we are in the ucb array in relative to codeword_size
-            //as in, we need to figure out the index to change relative to the increment
-            //also, the array is zero-indexed, so we have to subtract one for that
-            
-            node *node_to_change = traverse_n_nodes_backward(current_ucb_node, codeword_size);
-            node_to_change = traverse_n_nodes_forward(node_to_change, index_to_change-1);
-
-            buffer_coefficient *coeff = &node_to_change->coeff_struct;
-            if (coeff->coefficient > 0)
-                coeff->coefficient--;
-            else
-                coeff->coefficient++;
-
-            //embed the secret message: if shrinkage, repeat iteration. because of condition while filling coefficient buffer, zero will be ignored
-            if (coeff->coefficient == 0){
-                current_ucb_node = traverse_n_nodes_backward(current_ucb_node, codeword_size);
-                shrinkage_flag = 1;
-            }
-            else {
-                shrinkage_flag = 0;
-            }
             if (end_of_message)
                 break;
+
+            int index_to_change = (message_buffer ^ hash) - 1; //one-indexing to zero-indexing
+            shrinkage_flag = embed_message_bits(index_to_change, codeword_size, current_ucb_node);
 
         } //end while (*message)
         
