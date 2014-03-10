@@ -30,8 +30,8 @@ struct node{
 
 void add_to_linked_list(node *new_node, node *current_node);
 void remove_from_linked_list(node *delete_node);
-node *traverse_n_nodes_forward(node *current_node, int n);
-node *traverse_n_nodes_backward(node *current_node, int n);
+node *traverse_n_nodes_forward(node *current_node, size_t n);
+node *traverse_n_nodes_backward(node *current_node, size_t n);
 void print_linked_list(node *root);
 
 
