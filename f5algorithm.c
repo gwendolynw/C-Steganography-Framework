@@ -36,6 +36,18 @@ void fill_buffer_with_n_coefficients_lsb (int *coeff_buffer, node *coeff_node, s
     }
 }
 
+//guys guys guys, the math behind this part is so fucking cool
+//i wish the implementation didn't obscure it so much
+//but basically, multiply each entry in buffer by its index (starting from 1) and XOR all these products
+int hash_coefficient_buffer(int *coeff_buffer, size_t n) {
+    int hash = 0;
+    for (int i = 0; i < n; i++){
+        int product = coeff_buffer[i] * (i+1);
+        hash ^= product;
+    }
+    return hash;
+}
+
 int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
     size_t message_partition_size = get_message_partition_size(strlen(message)*8, list_size); //k
     size_t codeword_size = (1<<message_partition_size)-1; //n
@@ -53,15 +65,7 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
         while (*message != '\0' && current_ucb_node != NULL){
 
             fill_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
-
-            //hash coefficient buffer in order to extract k bits
-            //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
-            //as for why this words mathematically, no idea
-            int hash = 0;
-            for (int hash_buffer_index = 0; hash_buffer_index < codeword_size; hash_buffer_index++){
-                int product = coeff_buffer[hash_buffer_index] * (hash_buffer_index+1);
-                hash ^= product;
-            }
+            int hash = hash_coefficient_buffer(coeff_buffer, codeword_size);
 
             //if shrinkage is true, then the correct bits will already be the message_buffer variable
             if (!shrinkage_flag) {
