@@ -25,6 +25,17 @@ size_t get_message_partition_size(size_t message_size_in_bits, size_t list_size)
     return message_partition_size;
 }
 
+void fill_buffer_with_n_coefficients_lsb (int *coeff_buffer, node *coeff_node, size_t n) {
+    for (int i = 0; i < n; i++){
+        while (coeff_node->coeff_struct.coefficient==0) {
+            remove_from_linked_list(coeff_node);
+            coeff_node = coeff_node->next;
+        }
+        coeff_buffer[i] = (coeff_node->coeff_struct.coefficient & 1);
+        coeff_node = coeff_node->next;
+    }
+}
+
 //returns 0 if there's not enough capacity
 int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
     size_t message_partition_size = get_message_partition_size(strlen(message)*8, list_size); //k
@@ -34,25 +45,15 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
         return 0;
     }
     else {
-        int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
-        int message_buffer; //buffer to store k bits of message partition
-        int shrinkage_flag = 0; //if shrinkage, we use the message_buffer of the last iteration (because doing this with bit manipulation with weird message partitions (5 bits, etc) makes things messy
-        int current_msgbit_index = 0; //mark how far along current bit of *message we are
-        node *current_ucb_node = rootOfUsableCoefficientBuffer->next;  //mark how far along UCB we are
+        int coeff_buffer[codeword_size];
+        int message_buffer;
+        int shrinkage_flag = 0;
+        int current_msgbit_index = 0;
+        node *current_ucb_node = rootOfUsableCoefficientBuffer->next;
         
         while (*message != '\0' && current_ucb_node != NULL){
-            //get size n codeword from ucb
-            //i.e. fill coefficient buffer with n coefficients and store LSB of each in size n array
 
-            for (int coeff_buffer_index = 0; coeff_buffer_index < codeword_size; coeff_buffer_index++){
-                while (current_ucb_node->coeff_struct.coefficient==0) {
-                    //skip zero indices, as we can't embed into them
-                    remove_from_linked_list(current_ucb_node);
-                    current_ucb_node = current_ucb_node->next;
-                }
-                coeff_buffer[coeff_buffer_index] = (current_ucb_node->coeff_struct.coefficient & 1);
-                current_ucb_node = current_ucb_node->next;;
-            }
+            fill_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
 
             //hash coefficient buffer in order to extract k bits
             //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
@@ -141,18 +142,7 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     
     while (message_index < message_size_in_bytes){
         
-        //get size n codeword from ucb
-        //i.e. fill coefficient buffer with n coefficients and store LSB of each in size n array
-        int coeff_buffer_index;
-        for (coeff_buffer_index = 0; coeff_buffer_index < codeword_size; coeff_buffer_index++){
-            while (current_ucb_node->coeff_struct.coefficient==0) {
-                //skip zero indices, as we can't embed into them
-                remove_from_linked_list(current_ucb_node);
-                current_ucb_node = current_ucb_node->next;
-            }
-            coeff_buffer[coeff_buffer_index] = (current_ucb_node->coeff_struct.coefficient & 1);
-            current_ucb_node = current_ucb_node->next;;
-        }
+        fill_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
 
         //hash buffer to extract k bits. same function as embedding.
         //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
