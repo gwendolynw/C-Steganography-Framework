@@ -20,38 +20,21 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
     size_t carrier_size = list_size;
     float embed_rate = (float)message_size/carrier_size;
 
-    printf("determined message_size is %ld and carrier_size is %ld\n", message_size, carrier_size);
-    
     while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
         message_partition_size++;
     }
     
     message_partition_size--;
-    printf("message will be partitioned into %ld bits\n", message_partition_size);
-    
+
     //calculate the code word length n = 2^k - 1
     int codeword_size = (1<<message_partition_size)-1;  //let this also be known as the variable n
-    
-    printf("carrier will be partitioned into %i codewords\n", codeword_size);
-    
-    printf("\n");
-    
+
     int doEmbed = 1;  //boolean to flag whether message partition size is practical
     
     if (message_partition_size < 2){
         doEmbed = 0;
         return 0;
     }
-
-    
-    //DEBUG PRINTING HERE
-    int i;
-    for(i = 7; i >= 0; --i)
-        (*message & (1 << i)) ? putchar('1') : putchar('0');
-    
-    printf("(%i)", (int)*message);
-    printf("=> %c", *message);
-
 
     //THE EMBED LOOP
     if(doEmbed){
@@ -67,37 +50,19 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
         node *current_ucb_node = rootOfUsableCoefficientBuffer->next;  //mark how far along UCB we are
         
         while (*message != '\0' && current_ucb_node != NULL){
-            printf("message = %s\n", message);
             //get size n codeword from ucb
             //i.e. fill coefficient buffer with n coefficients and store LSB of each in size n array
 
-            //printf("new iteration\n\n");
-            //printf("this iteration's coefficient buffer is: ");
             for (int coeff_buffer_index = 0; coeff_buffer_index < codeword_size; coeff_buffer_index++){
                 while (current_ucb_node->coeff_struct.coefficient==0) {
                     //skip zero indices, as we can't embed into them
                     remove_from_linked_list(current_ucb_node);
                     current_ucb_node = current_ucb_node->next;
                 }
-                //printf("%i ", current_ucb_node->coeff_struct.coefficient);
                 coeff_buffer[coeff_buffer_index] = (current_ucb_node->coeff_struct.coefficient & 1);
                 current_ucb_node = current_ucb_node->next;;
             }
-        
-            //printf("\n");
-            
-            
-            //DEBUG PRINTING HERE
-            /*
-            printf("this iteration's coefficient buffer LSB is: ");
-            for (coeff_buffer_index = 0; coeff_buffer_index < codeword_size; coeff_buffer_index++){
-                printf("%i", coeff_buffer[coeff_buffer_index]);
-            }
-             */
-            //DEBUG PRINTING END
-            
-            //printf("\n");
-            
+
             //hash coefficient buffer in order to extract k bits
             //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
             //as for why this words mathematically, no idea
@@ -106,8 +71,7 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
                 int product = coeff_buffer[hash_buffer_index] * (hash_buffer_index+1);
                 hash ^= product;
             }
-            
-            //printf("message bit is: ");
+
             //if shrinkage is true, then the correct bits will already be the message_buffer variable
             if (!shrinkage_flag) {
                 message_buffer=0;
@@ -117,22 +81,6 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
                     if (current_msgbit_index > 7){  //we have moved onto the next 8-bit character, hence we must also increment pointer to get next char
                         message++;
                         current_msgbit_index = 0;
-                        
-                        //DEBUG PRINTING HERE
-                        //shows next letter to be embed and the letter in binary
-                        
-                        /*
-                        int i;
-                        printf(" [");
-                        for(i = 7; i >= 0; --i)
-                            (*message & 1 << i) ? putchar('1') : putchar('0');
-                        printf("(%i)", (int)*message);
-                        printf("=> %c] ", *message);
-                         */
-                        
-                        //DEBUG PRINTING END
-
-                        
                     }
 
                     // we may have hit the end of the string
@@ -142,34 +90,15 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
                     //get next bit of message, starting from where we last left off (relative to the current byte we're on)
                     int message_bit = (*message & (1 << (7 - current_msgbit_index))) ? 1 : 0;
                     current_msgbit_index++;
-                    //printf("%i", message_bit);
-                    
                     //store bit in this iteration's message buffer
                     if (message_bit) message_buffer |= (1 << (msg_buffer_index-1));
                     
                 }
             }
-            //DEBUG PRINTING HERE
-            /*
-            else {
-                int i = 0;
-                for(i = 7; i >= 0; --i)
-                    (message_buffer & 1 << i) ? putchar('1') : putchar('0');
-            }
-             */
-            //DEBUG PRINTING END
-
-
-            //printf("\n");
-            
-            //printf("this iteration's message buffer is: %i\n", message_buffer);
             int index_to_change = (message_buffer ^ hash);
-            
-            //printf("index to change is: %i\n", index_to_change);
-            
+
             //decrement/increment absolute value of index to change
             if (!index_to_change) {
-                //printf("\n");
                 continue; //if zero, don't do any embedding
             }
             
@@ -179,49 +108,23 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
             //also, the array is zero-indexed, so we have to subtract one for that
             
             node *node_to_change = traverse_n_nodes_backward(current_ucb_node, codeword_size);
-            //printf("1: coefficient to change is: %i\n", node_to_change->coeff_struct.coefficient);
-            
             node_to_change = traverse_n_nodes_forward(node_to_change, index_to_change-1);
-            //printf("2: coefficient to change is: %i\n", node_to_change->coeff_struct.coefficient);
 
             buffer_coefficient *coeff = &node_to_change->coeff_struct;
             if (coeff->coefficient > 0)
                 coeff->coefficient--;
             else
                 coeff->coefficient++;
-            
-            //printf("coefficient changed to: %i\n", coeff->coefficient);
-            
-            
-            //DEBUG PRINTING HERE
-            /*
-            printf("this iteration's changed coefficient buffer is: ");
-            node *debug_node = traverse_n_nodes_backward(current_ucb_node, codeword_size);
-            int debug_index;
-            for (debug_index = 0; debug_index < codeword_size; debug_index++){
-                printf("%i ", debug_node->coeff_struct.coefficient);
-                debug_node = debug_node->next;
-            }
-            printf("\n");
-             */
-            //DEBUG PRINTING END
-             
-             
-            
+
             //embed the secret message: if shrinkage, repeat iteration. because of condition while filling coefficient buffer, zero will be ignored
             if (coeff->coefficient == 0){
                 current_ucb_node = traverse_n_nodes_backward(current_ucb_node, codeword_size);
                 shrinkage_flag = 1;
-                //current_msgbit_index -= message_partition_size;  //this isn't clean for weird message partitions like 5 bits (as mentioned above)
-                //printf("message buffer is %i\n", message_buffer);
-                //printf("SHRINKAGE\n");
             }
             else {
                 shrinkage_flag = 0;
             }
-            //printf("\n");
-            
-            
+
         } //end while (*message)
         
         if (!(*message) && current_ucb_node == NULL){
@@ -240,23 +143,16 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     size_t message_index = 0; //how many bytes along have been extracted
     int message_bit_index = 0; //how many bits along (relative to current byte) have been extracted
     float embed_rate = (float)output_buffer_size/list_size;
-    
-    printf("determined message_size is %ld and carrier_size is %d\n", output_buffer_size, list_size);
-    
+        
     while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
         message_partition_size++;
     }
     
     message_partition_size--;
-    printf("message will be partitioned into %i bits\n", message_partition_size);
-    
+
     //calculate the code word length n = 2^k - 1
     int codeword_size = (1<<message_partition_size)-1;  //let this also be known as the variable n
-    
-    printf("carrier will be partitioned into %i codewords\n", codeword_size);
-    
-    //printf("\n");
-    
+
     node *current_ucb_node = rootOfUsableCoefficientBuffer->next; //mark how far along ucb list we are.
     
     int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
@@ -266,20 +162,16 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
         //get size n codeword from ucb
         //i.e. fill coefficient buffer with n coefficients and store LSB of each in size n array
         int coeff_buffer_index;
-        //printf("this iteration's coefficient buffer is: ");
         for (coeff_buffer_index = 0; coeff_buffer_index < codeword_size; coeff_buffer_index++){
             while (current_ucb_node->coeff_struct.coefficient==0) {
                 //skip zero indices, as we can't embed into them
                 remove_from_linked_list(current_ucb_node);
                 current_ucb_node = current_ucb_node->next;
             }
-            //printf(" %i", current_ucb_node->coeff_struct.coefficient);
             coeff_buffer[coeff_buffer_index] = (current_ucb_node->coeff_struct.coefficient & 1);
             current_ucb_node = current_ucb_node->next;;
         }
-        
-        //printf("\n");
-        
+
         //hash buffer to extract k bits. same function as embedding.
         //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
         int hash = 0;
@@ -288,35 +180,25 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
             int product = coeff_buffer[hash_buffer_index] * (hash_buffer_index+1);
             hash ^= product;
         }
-        
-        //printf("\n");
-        
-        //printf("hash is: %i\n", hash);
-        
+
         //add each bit from k-size hash, starting from the left into current index of extracted message array
         int current_hash_bit;
-        //printf("message bit is: ");
         for (current_hash_bit = 0; current_hash_bit < message_partition_size; current_hash_bit++){
             if (message_bit_index > 7){ //we reach end of byte, so increment to next byte of allocated array
                 message_bit_index = 0;
-                //printf("(%i) => %c\n", extracted_message[message_index], (char)extracted_message[message_index]);
                 message_index++;
                 output_buffer[message_index] = 0;
             }
             
             //get left-most bit from hash
             int message_bit = (hash & 1 << (message_partition_size - current_hash_bit -1)) ? 1 : 0;
-            //printf("%i", message_bit);
-            
+
             //add bit to message's current byte
             if (message_bit) output_buffer[message_index] |= (1 << (7-message_bit_index));
             message_bit_index++;
             
         }
-        
-        //printf("\n");
 
-        
     } //end while (message_index < message_length)
 
 }// end extraction
