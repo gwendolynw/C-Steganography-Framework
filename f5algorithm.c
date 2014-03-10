@@ -25,7 +25,7 @@ size_t get_message_partition_size(size_t message_size_in_bits, size_t list_size)
     return message_partition_size;
 }
 
-void fill_buffer_with_n_coefficients_lsb (int *coeff_buffer, node *coeff_node, size_t n) {
+void fill_coeff_buffer_with_n_coefficients_lsb (int *coeff_buffer, node *coeff_node, size_t n) {
     for (int i = 0; i < n; i++){
         while (coeff_node->coeff_struct.coefficient==0) {
             remove_from_linked_list(coeff_node);
@@ -64,7 +64,7 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
         
         while (*message != '\0' && current_ucb_node != NULL){
 
-            fill_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
+            fill_coeff_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
             int hash = hash_coefficient_buffer(coeff_buffer, codeword_size);
 
             //if shrinkage is true, then the correct bits will already be the message_buffer variable
@@ -145,7 +145,7 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     
     while (message_index < message_size_in_bytes){
         
-        fill_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
+        fill_coeff_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
 
         //hash buffer to extract k bits. same function as embedding.
         //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
