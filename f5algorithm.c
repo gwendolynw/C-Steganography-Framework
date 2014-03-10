@@ -48,6 +48,30 @@ int hash_coefficient_buffer(int *coeff_buffer, size_t n) {
     return hash;
 }
 
+int fill_message_buffer_with_k_message_bits (int *message_buffer, const char *message, size_t k, int *current_msgbit_index) {
+    message_buffer=0;
+    for (size_t i = k; i > 0; i--){
+        if (*current_msgbit_index > 7){
+            message++;
+            *current_msgbit_index = 0;
+        }
+
+        // we may have hit the end of the string
+        if (!*message)
+            return 1;
+
+        //get next bit of message, starting from where we last left off (relative to the current byte we're on)
+        int message_bit = (*message & (1 << (7 - *current_msgbit_index))) ? 1 : 0;
+        current_msgbit_index++;
+        //store bit in this iteration's message buffer
+        if (message_bit) *message_buffer |= (1 << (i-1));
+    }
+
+    return 0;
+}
+}
+
+
 int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
     size_t message_partition_size = get_message_partition_size(strlen(message)*8, list_size); //k
     size_t codeword_size = (1<<message_partition_size)-1; //n
@@ -60,6 +84,8 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
         int message_buffer;
         int shrinkage_flag = 0;
         int current_msgbit_index = 0;
+        int end_of_message = 0;
+
         node *current_ucb_node = rootOfUsableCoefficientBuffer->next;
         
         while (*message != '\0' && current_ucb_node != NULL){
@@ -70,25 +96,7 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
             //if shrinkage is true, then the correct bits will already be the message_buffer variable
             if (!shrinkage_flag) {
                 message_buffer=0;
-                //fill message buffer with k bits of message string
-                //this is where the bit manipulation gets cray
-                for (size_t msg_buffer_index = message_partition_size; msg_buffer_index > 0; msg_buffer_index--){
-                    if (current_msgbit_index > 7){  //we have moved onto the next 8-bit character, hence we must also increment pointer to get next char
-                        message++;
-                        current_msgbit_index = 0;
-                    }
-
-                    // we may have hit the end of the string
-                    if (!*message)
-                        break;
-
-                    //get next bit of message, starting from where we last left off (relative to the current byte we're on)
-                    int message_bit = (*message & (1 << (7 - current_msgbit_index))) ? 1 : 0;
-                    current_msgbit_index++;
-                    //store bit in this iteration's message buffer
-                    if (message_bit) message_buffer |= (1 << (msg_buffer_index-1));
-                    
-                }
+                end_of_message = fill_message_buffer_with_k_message_bits(&message_buffer, message, message_partition_size, &current_msgbit_index);
             }
             int index_to_change = (message_buffer ^ hash);
 
@@ -119,6 +127,8 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
             else {
                 shrinkage_flag = 0;
             }
+            if (end_of_message)
+                break;
 
         } //end while (*message)
         
