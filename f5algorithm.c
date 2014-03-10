@@ -13,31 +13,27 @@
 #include "f5algorithm.h"
 #include "node.h"
 
-//returns 0 if there's not enough capacity
-int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
-    size_t message_partition_size = 1;  //let this also be known as the variable k
-    size_t message_size_in_bits = strlen(message)*8;
-    size_t carrier_size = list_size;
-    float embed_rate = (float)message_size_in_bits/carrier_size;
+size_t get_message_partition_size(size_t message_size_in_bits, size_t list_size) {
+    size_t message_partition_size = 1;
+    float embed_rate = (float)message_size_in_bits/list_size;
 
     while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
         message_partition_size++;
     }
-    
     message_partition_size--;
 
-    //calculate the code word length n = 2^k - 1
-    int codeword_size = (1<<message_partition_size)-1;  //let this also be known as the variable n
+    return message_partition_size;
+}
 
-    int doEmbed = 1;  //boolean to flag whether message partition size is practical
-    
+//returns 0 if there's not enough capacity
+int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
+    size_t message_partition_size = get_message_partition_size(strlen(message)*8, list_size); //k
+    size_t codeword_size = (1<<message_partition_size)-1; //n
+
     if (message_partition_size < 2){
-        doEmbed = 0;
         return 0;
     }
-
-    //THE EMBED LOOP
-    if(doEmbed){
+    else {
         int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
         int message_buffer; //buffer to store k bits of message partition
         int shrinkage_flag = 0; //if shrinkage, we use the message_buffer of the last iteration (because doing this with bit manipulation with weird message partitions (5 bits, etc) makes things messy
@@ -133,17 +129,10 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
 }
 
 void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int list_size, size_t output_buffer_size, char *output_buffer) {
-    int message_partition_size = 1;  //let this also be known as the variable k
-    size_t message_size_in_bytes = output_buffer_size/8; 
+    size_t message_partition_size = get_message_partition_size(output_buffer_size, list_size);
+    size_t message_size_in_bytes = output_buffer_size/8;
     size_t message_index = 0; //how many bytes along have been extracted
     int message_bit_index = 0; //how many bits along (relative to current byte) have been extracted
-    float embed_rate = (float)output_buffer_size/list_size;
-
-    while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
-        message_partition_size++;
-    }
-
-    message_partition_size--;
 
     //calculate the code word length n = 2^k - 1
     int codeword_size = (1<<message_partition_size)-1;  //let this also be known as the variable n
