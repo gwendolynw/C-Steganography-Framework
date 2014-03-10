@@ -36,13 +36,12 @@ void fill_buffer_with_n_coefficients_lsb (int *coeff_buffer, node *coeff_node, s
     }
 }
 
-//returns 0 if there's not enough capacity
 int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
     size_t message_partition_size = get_message_partition_size(strlen(message)*8, list_size); //k
     size_t codeword_size = (1<<message_partition_size)-1; //n
 
     if (message_partition_size < 2){
-        return 0;
+        return -1;
     }
     else {
         int coeff_buffer[codeword_size];
