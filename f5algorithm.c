@@ -16,9 +16,9 @@
 //returns 0 if there's not enough capacity
 int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size){
     size_t message_partition_size = 1;  //let this also be known as the variable k
-    size_t message_size = strlen(message)*8; //getting size of message in bits
+    size_t message_size_in_bits = strlen(message)*8;
     size_t carrier_size = list_size;
-    float embed_rate = (float)message_size/carrier_size;
+    float embed_rate = (float)message_size_in_bits/carrier_size;
 
     while (embed_rate < ((float)message_partition_size/((1<<message_partition_size)-1))){
         message_partition_size++;
@@ -134,7 +134,7 @@ int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoeffici
 
 void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int list_size, size_t output_buffer_size, char *output_buffer) {
     int message_partition_size = 1;  //let this also be known as the variable k
-    size_t message_length = output_buffer_size/8; //how many bytes in the message
+    size_t message_size_in_bytes = output_buffer_size/8; 
     size_t message_index = 0; //how many bytes along have been extracted
     int message_bit_index = 0; //how many bits along (relative to current byte) have been extracted
     float embed_rate = (float)output_buffer_size/list_size;
@@ -150,7 +150,7 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     node *current_ucb_node = rootOfUsableCoefficientBuffer->next; //mark how far along ucb list we are.
     int coeff_buffer[codeword_size]; //buffer to store n bits of codeword
     
-    while (message_index < message_length){
+    while (message_index < message_size_in_bytes){
         
         //get size n codeword from ucb
         //i.e. fill coefficient buffer with n coefficients and store LSB of each in size n array
