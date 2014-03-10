@@ -146,15 +146,7 @@ void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int lis
     while (message_index < message_size_in_bytes){
         
         fill_coeff_buffer_with_n_coefficients_lsb(coeff_buffer, current_ucb_node, codeword_size);
-
-        //hash buffer to extract k bits. same function as embedding.
-        //i.e. multiply each entry in buffer by its index (starting from 1) and XOR all these products
-        int hash = 0;
-        int hash_buffer_index;
-        for (hash_buffer_index = 0; hash_buffer_index < codeword_size; hash_buffer_index++){
-            int product = coeff_buffer[hash_buffer_index] * (hash_buffer_index+1);
-            hash ^= product;
-        }
+        int hash = hash_coefficient_buffer(coeff_buffer, codeword_size);
 
         //add each bit from k-size hash, starting from the left into current index of extracted message array
         int current_hash_bit;
