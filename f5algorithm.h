@@ -11,7 +11,7 @@
 
 #include "node.h"
 
-int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, int list_size);
-void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, int list_size, size_t message_size, char *extracted_message_string);
+int embedMessageIntoCoefficients(const char *message, node *rootOfUsableCoefficientBuffer, size_t list_size);
+void extractMessageFromCoefficients(node *rootOfUsableCoefficientBuffer, size_t list_size, size_t message_size, char *extracted_message_string);
 
 #endif

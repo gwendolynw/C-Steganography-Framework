@@ -9,15 +9,15 @@
 #ifndef f5_dct_node_h
 #define f5_dct_node_h
 
-typedef struct buffer_coefficient buffer_coefficient;
-
 //struct containing coefficient and metadata
 struct buffer_coefficient {
-    int row_index;
-    int column_index;
-    int block_index;
-    int coefficient;
+    unsigned int row_index;
+    unsigned int column_index;
+    unsigned int block_index;
+    short coefficient;
 };
+
+typedef struct buffer_coefficient buffer_coefficient;
 
 typedef struct node node;
 

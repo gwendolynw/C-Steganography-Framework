@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "node.h"
 #include "f5algorithm.h"
@@ -26,7 +27,7 @@ struct arguments {
 };
 
 struct coefficients {
-    int size;
+    size_t size;
     buffer_coefficient *array;
 };
 
@@ -52,7 +53,7 @@ static void parse_arguments(int argc, char *argv[], struct arguments *args)
 	}
 	else if (args->extractFlag) {
         args->userPassword = argv[4];
-        args->message_size = 120;
+        args->message_size = 88;
         
         printf("We are extracting \ninput pic is %s \nmessageSize is %ld \nuserPassword is %s \n", args->inputname, args->message_size, args->userPassword);
 	}
@@ -68,14 +69,14 @@ static struct jpeg_error_mgr jerr;
 static jvirt_barray_ptr *coef_arrays;
 
 static size_t block_row_size[MAX_COMPONENTS];
-static int width_in_blocks[MAX_COMPONENTS];
-static int height_in_blocks[MAX_COMPONENTS];
+static JDIMENSION width_in_blocks[MAX_COMPONENTS];
+static JDIMENSION height_in_blocks[MAX_COMPONENTS];
 
 static int num_components;
 
 static JBLOCKARRAY row_ptrs[MAX_COMPONENTS];
 
-static void read_DCT(const char *inputname, JBLOCKARRAY *coef_buffers, struct jpeg_compress_struct *outputinfo)
+static void read_DCT(const char *inputname, JBLOCKARRAY *coef_buffers, j_compress_ptr outputinfo)
 {
     FILE * input_file = fopen(inputname, "rb");
     if (input_file == NULL) {
@@ -115,9 +116,7 @@ static void read_DCT(const char *inputname, JBLOCKARRAY *coef_buffers, struct jp
     
     /* Copy compression parameters from the input file to the output file */
     jpeg_copy_critical_parameters(&inputinfo, outputinfo);
-    
 
-    
     /* Copy DCT coeffs to a new array */
     
     for (int compnum = 0; compnum<num_components; compnum++)
@@ -125,10 +124,10 @@ static void read_DCT(const char *inputname, JBLOCKARRAY *coef_buffers, struct jp
         height_in_blocks[compnum] = inputinfo.comp_info[compnum].height_in_blocks;
         width_in_blocks[compnum] = inputinfo.comp_info[compnum].width_in_blocks;
         block_row_size[compnum] = (size_t) sizeof(JCOEF)*DCTSIZE2*width_in_blocks[compnum];
-        for (int rownum=0; rownum<height_in_blocks[compnum]; rownum++)
+        for (JDIMENSION rownum=0; rownum<height_in_blocks[compnum]; rownum++)
         {
             row_ptrs[compnum] = inputinfo.mem->access_virt_barray(common, coef_arrays[compnum], rownum, 1, FALSE);
-            for (int blocknum=0; blocknum<width_in_blocks[compnum]; blocknum++)
+            for (JDIMENSION blocknum=0; blocknum<width_in_blocks[compnum]; blocknum++)
             {
                 for (int i=0; i<DCTSIZE2; i++)
                 {
@@ -151,14 +150,14 @@ static void init_usable_coeffs(const JBLOCKARRAY *coef_buffers, struct coefficie
     usable->size = 0;
     
     //only doing component = 0 so as to only embed in luma coefficients
-    for (int rownum=0; rownum<height_in_blocks[0]; rownum++)
+    for (JDIMENSION rownum=0; rownum<height_in_blocks[0]; rownum++)
     {
-        for (int blocknum=0; blocknum<width_in_blocks[0]; blocknum++)
+        for (JDIMENSION blocknum=0; blocknum<width_in_blocks[0]; blocknum++)
         {
             //printf("\n\nRow:%i, Column: %i\n", rownum, blocknum);
-            for (int i=0; i<4; i++)
+            for (unsigned int i=0; i<4; i++)
             {
-                int this_iterations_coefficient = coef_buffers[0][rownum][blocknum][i];
+                JCOEF this_iterations_coefficient = coef_buffers[0][rownum][blocknum][i];
                 if (this_iterations_coefficient){
                     //make struct of usable coefficient with indices
                     buffer_coefficient usable_coefficient;
@@ -181,47 +180,38 @@ static node *instantiate_permutation(unsigned seed, struct coefficients *usable)
     srand(seed);
 
     //instantiate a permutation of DCT coefficients, using Fisher-Yates algorithm
-    int permutationArray[usable->size];
+    size_t permutationArray[usable->size];
     
-    for (int index = 0; index < usable->size; index++) {
+    for (size_t index = 0; index < usable->size; index++) {
         permutationArray[index]=index;
     }
     
     printf("running permutation\n");
-    int randomIndex, temp;
-    int maxRandom = usable->size;
-    for (int index = 0; index < usable->size; index++) {
+    size_t randomIndex, temp;
+    size_t maxRandom = usable->size;
+    for (size_t index = 0; index < usable->size; index++) {
 
-        randomIndex = rand() % maxRandom--;
+        randomIndex = ((unsigned int) rand()) % maxRandom--;
         temp = permutationArray[randomIndex];
         permutationArray[randomIndex] = permutationArray[index];
         permutationArray[index] = temp;
-    
-        if (index<50){
-            printf("%i ", permutationArray[index]);
-        }
     }
     
     printf("done permuting\n");
     
-    
-    //make linked list, because it's a much things easier to handle IMO 
     node *root = malloc(sizeof(node));
     node *current_node = root;
     
-    int linked_list_index = 0;
-    
     printf("creating linked list...\n");
 
-    while (linked_list_index < usable->size) {
+    for (size_t linked_list_index = 0; linked_list_index < usable->size; linked_list_index++) {
 
         //creates linked list of the coefficients, as shuffled by the permutation
         node *new_node = malloc(sizeof(node));
         new_node->coeff_struct = usable->array[permutationArray[linked_list_index]];
         add_to_linked_list(new_node, current_node);
         current_node = current_node->next;
-        
-        linked_list_index++;
+
     }
     
     printf("done creating linked list\n");
@@ -236,7 +226,7 @@ static node *instantiate_permutation(unsigned seed, struct coefficients *usable)
     return root;
 }
 
-int make_linked_list(const JBLOCKARRAY *coef_buffers, unsigned int seed, node **root)
+static size_t make_linked_list(const JBLOCKARRAY *coef_buffers, unsigned int seed, node **root)
 {
     struct coefficients usable;
     usable.array = malloc(sizeof(buffer_coefficient)*height_in_blocks[0]*width_in_blocks[0]*4);
@@ -247,7 +237,7 @@ int make_linked_list(const JBLOCKARRAY *coef_buffers, unsigned int seed, node **
     
     init_usable_coeffs(coef_buffers, &usable);
     printf("\n\n");
-    printf("buffer size is %i\n", usable.size);
+    printf("buffer size is %i\n", (int) usable.size);
     
     //openSSL hasn't been recreatable
     //RAND_seed(userPassword, strlen(userPassword));
@@ -259,7 +249,7 @@ int make_linked_list(const JBLOCKARRAY *coef_buffers, unsigned int seed, node **
     return usable.size;
 }
 
-static FILE *setup_output(const char *outputname, struct jpeg_compress_struct *outputinfo)
+static FILE *setup_output(const char *outputname, j_compress_ptr outputinfo)
 {
     FILE * output_file = fopen(outputname, "wb");
     if (output_file == NULL) {
@@ -274,7 +264,7 @@ static FILE *setup_output(const char *outputname, struct jpeg_compress_struct *o
     return output_file;
 }
 
-void write_DCT(const char *outputname, JBLOCKARRAY *coef_buffers, struct jpeg_compress_struct *outputinfo)
+static void write_DCT(const char *outputname, JBLOCKARRAY *coef_buffers, j_compress_ptr outputinfo)
 {
     {
         printf("writing to new picture\n");
@@ -284,7 +274,7 @@ void write_DCT(const char *outputname, JBLOCKARRAY *coef_buffers, struct jpeg_co
         /* Output the new DCT coeffs to a JPEG file */
         for (int compnum=0; compnum<num_components; compnum++)
         {
-            for (int rownum=0; rownum<height_in_blocks[compnum]; rownum++)
+            for (JDIMENSION rownum=0; rownum<height_in_blocks[compnum]; rownum++)
             {
                 row_ptrs[compnum] = outputinfo->mem->access_virt_barray(common, coef_arrays[compnum], rownum, (JDIMENSION) 1, TRUE);
                 memcpy(row_ptrs[compnum][0][0],
@@ -307,7 +297,7 @@ void write_DCT(const char *outputname, JBLOCKARRAY *coef_buffers, struct jpeg_co
     }
 }
 
-static void embed(JBLOCKARRAY *coef_buffers, const char *embedMessage, node *root, int root_len)
+static void embed(JBLOCKARRAY *coef_buffers, const char *embedMessage, node *root, size_t root_len)
 {
     {
         //going along random walk as produced by the CPRNG, embed/extract message into coefficients using binary hamming matrix code
@@ -317,7 +307,8 @@ static void embed(JBLOCKARRAY *coef_buffers, const char *embedMessage, node *roo
         printf("changing coefficients\n");
         node *current_node = root->next;
         while (current_node != NULL) {
-            coef_buffers[0][current_node->coeff_struct.row_index][current_node->coeff_struct.column_index][current_node->coeff_struct.block_index] = current_node->coeff_struct.coefficient;
+            JCOEF coefficient = current_node->coeff_struct.coefficient;
+            coef_buffers[0][current_node->coeff_struct.row_index][current_node->coeff_struct.column_index][current_node->coeff_struct.block_index] = coefficient;
             current_node = current_node->next;
         }
 
@@ -325,7 +316,7 @@ static void embed(JBLOCKARRAY *coef_buffers, const char *embedMessage, node *roo
     }
 }
 
-void extract(size_t message_size, node *root, int usable_size)
+static void extract(size_t message_size, node *root, size_t usable_size)
 {
     {
         node *current_node = root;
@@ -354,15 +345,16 @@ int main(int argc, char * argv[])
     parse_arguments(argc, argv, &args);
 
     struct jpeg_compress_struct outputinfo;
-    FILE *output = setup_output(args.outputname, &outputinfo);
 
     JBLOCKARRAY coef_buffers[MAX_COMPONENTS];
-    
+
+    FILE *output = setup_output(args.outputname, &outputinfo);
+
     read_DCT(args.inputname, coef_buffers, &outputinfo);
 
     unsigned int seed = (unsigned) strtoul(args.userPassword, NULL, 10);
     node *root;
-    int usable_size = make_linked_list(coef_buffers, seed, &root);
+    size_t usable_size = make_linked_list(coef_buffers, seed, &root);
 
     if (args.embedFlag) {
         embed(coef_buffers, args.embedMessage, root, usable_size);

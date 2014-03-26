@@ -22,16 +22,14 @@ void remove_from_linked_list(node *delete_node){
 }
 
 node *traverse_n_nodes_forward(node *current_node, size_t n) {
-	int index;
-	for (index = 0; index<n; index++) {
-		current_node = current_node->next;
+	for (size_t index = 0; index<n; index++) {
+        current_node = current_node->next;
 	}
 	return current_node;
 }
 
 node *traverse_n_nodes_backward(node *current_node, size_t n) {
-	int index;
-	for (index = 0; index<n; index++) {
+	for (size_t index = 0; index<n; index++) {
 		current_node = current_node->prev;
 	}
 	return current_node;
